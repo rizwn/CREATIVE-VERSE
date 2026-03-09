@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><title>HANGOUT · CreativeVerse</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#001224;overflow:hidden;font-family:'Courier New',monospace;color:#fff;}
+canvas{display:block;}
+#ui{position:fixed;inset:0;pointer-events:none;z-index:10;}
+#location-tag{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.5);border:1px solid rgba(96,165,250,.2);border-radius:8px;padding:7px 18px;font-size:10px;letter-spacing:3px;color:#60A5FA;backdrop-filter:blur(8px);}
+#chat-ui{position:absolute;bottom:20px;left:20px;width:320px;pointer-events:all;}
+#chat-log{max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;margin-bottom:8px;padding:8px;background:rgba(0,0,0,.5);border-radius:8px;border:1px solid rgba(255,255,255,.06);}
+#chat-log::-webkit-scrollbar{width:3px;}
+#chat-log::-webkit-scrollbar-thumb{background:rgba(96,165,250,.2);}
+.chat-msg{font-size:11px;line-height:1.5;word-break:break-word;}
+.chat-msg.sys{color:rgba(96,165,250,.5);font-style:italic;}
+.chat-msg .cn{font-weight:700;}
+#chat-row{display:flex;gap:8px;}
+#chat-input{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#fff;font-family:'Courier New',monospace;font-size:12px;padding:10px 14px;outline:none;transition:border-color .2s;}
+#chat-input:focus{border-color:rgba(96,165,250,.4);}
+#chat-input::placeholder{color:rgba(255,255,255,.2);}
+#chat-send{background:#60A5FA;border:none;border-radius:8px;color:#000;font-weight:900;padding:0 16px;font-size:14px;cursor:pointer;transition:background .15s;}
+#chat-send:hover{background:#3b82f6;}
+#players-nearby{position:absolute;top:20px;right:20px;display:flex;flex-direction:column;gap:6px;max-width:160px;}
+.pnear{display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.06);border-radius:7px;padding:5px 10px;font-size:11px;backdrop-filter:blur(4px);}
+.pnear-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:900;flex-shrink:0;}
+#emote-bar{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);display:flex;gap:8px;}
+.emote-btn{background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 14px;font-size:18px;cursor:pointer;pointer-events:all;transition:all .2s;}
+.emote-btn:hover{background:rgba(96,165,250,.2);border-color:rgba(96,165,250,.4);transform:scale(1.15);}
+#splash{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 0%,#001a2e 0%,#000d1a 70%);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;}
+#splash h1{font-size:80px;font-weight:900;letter-spacing:8px;background:linear-gradient(135deg,#fff,#60A5FA,#4ADE80);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.splash-tag{font-size:10px;letter-spacing:5px;color:rgba(255,255,255,.3);}
+.ctrl-info{display:flex;gap:16px;background:rgba(255,255,255,.03);border:1px solid rgba(96,165,250,.1);border-radius:12px;padding:14px 24px;}
+.ci{display:flex;gap:7px;align-items:center;font-size:11px;}
+.ck{background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.15);border-radius:4px;padding:2px 8px;font-size:9px;color:#60A5FA;letter-spacing:1px;}
+.cd{color:rgba(255,255,255,.3);}
+#enter-btn{padding:15px 52px;background:#60A5FA;border:none;border-radius:10px;color:#000;font-size:16px;font-weight:900;letter-spacing:4px;cursor:pointer;transition:all .2s;font-family:'Courier New',monospace;}
+#enter-btn:hover{background:#3b82f6;transform:scale(1.04);box-shadow:0 12px 40px rgba(96,165,250,.3);}
+#emote-popup{position:absolute;pointer-events:none;font-size:28px;transition:opacity .5s;border-radius:12px;padding:6px 12px;background:rgba(0,0,0,.5);}
+</style>
+</head>
+<body>
+<canvas id="cvs"></canvas>
+<div id="ui">
+  <div id="location-tag">📍 THE PLAZA</div>
+  <div id="chat-ui">
+    <div id="chat-log"></div>
+    <div id="chat-row"><input type="text" id="chat-input" placeholder="say something..." maxlength="80" autocomplete="off"/><button id="chat-send">↑</button></div>
+  </div>
+  <div id="players-nearby"></div>
+  <div id="emote-bar">
+    <div class="emote-btn" data-emote="👋">👋</div>
+    <div class="emote-btn" data-emote="🎉">🎉</div>
+    <div class="emote-btn" data-emote="❤️">❤️</div>
+    <div class="emote-btn" data-emote="🔥">🔥</div>
+    <div class="emote-btn" data-emote="💀">💀</div>
+    <div class="emote-btn" data-emote="✌️">✌️</div>
+  </div>
+</div>
+<div id="splash">
+  <h1>HANGOUT</h1>
+  <div class="splash-tag">OPEN WORLD · SOCIAL · CHILL</div>
+  <div class="ctrl-info">
+    <div class="ci"><span class="ck">WASD / ←→↑↓</span><span class="cd">Move</span></div>
+    <div class="ci"><span class="ck">ENTER</span><span class="cd">Chat</span></div>
+    <div class="ci"><span class="ck">1-6</span><span class="cd">Emotes</span></div>
+  </div>
+  <button id="enter-btn">ENTER WORLD</button>
+</div>
+<script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+<script>
+const params=new URLSearchParams(location.search);
+const CU=params.get('user')||'guest';
+const ROOM=params.get('room')||'hangout-main';
+const ABLY_KEY='eed3KQ.no0pow:SdH7fgwofQ4pno7VoUd6vHvr_t5i5ViLHMHpEonYtPg';
+const cvs=document.getElementById('cvs'),ctx=cvs.getContext('2d');
+let W,H;function rsz(){W=cvs.width=innerWidth;H=cvs.height=innerHeight;}rsz();window.addEventListener('resize',rsz);
+
+// ── WORLD ───────────────────────────────────────────────────
+const WORLD_W=3200,WORLD_H=2200;
+const ZONES=[
+  {name:'THE PLAZA',x:200,y:200,w:600,h:400,color:'rgba(96,165,250,.08)'},
+  {name:'FOUNTAIN',x:420,y:260,w:160,h:160,color:'rgba(96,165,250,.15)'},
+  {name:'TREEHOUSE',x:1000,y:100,w:400,h:500,color:'rgba(74,222,128,.08)'},
+  {name:'ROOFTOP',x:1600,y:50,w:400,h:300,color:'rgba(245,197,24,.08)'},
+  {name:'GARDEN',x:2000,y:400,w:500,h:400,color:'rgba(74,222,128,.1)'},
+  {name:'STARGAZING',x:2200,y:1000,w:600,h:400,color:'rgba(192,132,252,.08)'},
+];
+const DECORATIONS=[
+  // Trees
+  ...[50,300,150,800,1800,900,2600,600,700,1400,2400,200,1200,1800].map((x,i)=>({t:'tree',x,y:150+Math.sin(i)*100+i*120,c:'#4ADE80'})),
+  // Benches
+  ...[250,420,350,430,600,280,650,290].reduce((a,v,i)=>i%2===0?[...a,{t:'bench',x:v}]:[...a.slice(0,-1),{...a[a.length-1],y:v}],[]),
+  // Fountain
+  {t:'fountain',x:460,y:310},
+  // Streetlamps
+  ...[300,260,500,260,400,500,700,350,900,200].reduce((a,v,i)=>i%2===0?[...a,{t:'lamp',x:v}]:[...a.slice(0,-1),{...a[a.length-1],y:v}],[]),
+];
+
+// ── PLAYER ──────────────────────────────────────────────────
+const AVATAR_COLORS=['#F5C518','#F87171','#4ADE80','#60A5FA','#C084FC','#FB923C','#F472B6','#34D399'];
+function getColor(name){let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))%AVATAR_COLORS.length;return AVATAR_COLORS[h];}
+const playerColor=getColor(CU);
+
+const player={x:400,y:350,vx:0,vy:0,facing:1,moving:false,step:0,emote:null,emoteTimer:0,color:playerColor,name:CU};
+const SPEED=3.2;
+const remotes={};
+const emoteQueue=[];
+
+const keys={};
+document.addEventListener('keydown',e=>{
+  if(document.activeElement===document.getElementById('chat-input'))return;
+  keys[e.code]=true;
+  const emotes=['👋','🎉','❤️','🔥','💀','✌️'];
+  for(let i=1;i<=6;i++)if(e.code==='Digit'+i)sendEmote(emotes[i-1]);
+});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+
+function sendEmote(e){
+  player.emote=e;player.emoteTimer=120;
+  if(chan)chan.publish('emote',{user:CU,emote:e,x:player.x,y:player.y,room:ROOM});
+  showEmotePopup(player.x,player.y,e,'self');
+}
+
+document.querySelectorAll('.emote-btn').forEach(b=>b.addEventListener('click',()=>sendEmote(b.dataset.emote)));
+
+// ── CHAT ────────────────────────────────────────────────────
+function addMsg(name,text,sys=false){
+  const log=document.getElementById('chat-log');
+  const el=document.createElement('div');el.className='chat-msg'+(sys?' sys':'');
+  if(sys)el.textContent=text;
+  else{const c=getColor(name);el.innerHTML=`<span class="cn" style="color:${c}">${name.toUpperCase()}:</span> ${text.replace(/</g,'&lt;')}`;}
+  log.appendChild(el);log.scrollTop=log.scrollHeight;
+  while(log.children.length>40)log.firstChild.remove();
+}
+
+function sendChat(){
+  const inp=document.getElementById('chat-input');
+  const t=inp.value.trim();if(!t)return;inp.value='';
+  addMsg(CU,t);
+  if(chan)chan.publish('chat',{user:CU,text:t,room:ROOM});
+}
+document.getElementById('chat-send').addEventListener('click',sendChat);
+document.getElementById('chat-input').addEventListener('keydown',e=>{if(e.key==='Enter'){e.stopPropagation();sendChat();}});
+
+// ── EMOTE POPUPS ─────────────────────────────────────────────
+const emotePopups=[];
+function showEmotePopup(wx,wy,emote,id){
+  emotePopups.push({wx,wy,emote,id,life:1,dy:-1});
+}
+
+// ── ABLY ────────────────────────────────────────────────────
+let chan=null;
+function initAbly(){
+  const a=new Ably.Realtime({key:ABLY_KEY,clientId:CU+'_ho'+Math.random().toString(36).slice(2,4)});
+  a.connection.on('connected',()=>{
+    chan=a.channels.get('hangout:'+ROOM);
+    chan.presence.enter({user:CU,x:player.x,y:player.y,color:playerColor});
+    chan.presence.subscribe(()=>{chan.presence.get((err,m)=>{if(err)return;m.forEach(p=>{if(p.data.user===CU)return;remotes[p.clientId]={...p.data,trail:[]};});updateNearby();});});
+    chan.presence.subscribe('leave',m=>{const rp=remotes[m.clientId];if(rp)addMsg(null,rp.user+' left','sys');delete remotes[m.clientId];updateNearby();});
+    chan.subscribe('pos',m=>{if(m.data.user===CU)return;const r=remotes[m.clientId]||{trail:[]};remotes[m.clientId]={...r,...m.data,trail:r.trail||[]};});
+    chan.subscribe('chat',m=>{if(m.data.user===CU)return;addMsg(m.data.user,m.data.text);});
+    chan.subscribe('emote',m=>{if(m.data.user===CU)return;showEmotePopup(m.data.x,m.data.y,m.data.emote,m.clientId);});
+    addMsg(null,'Connected! Say hi to everyone 👋','sys');
+    setInterval(()=>{chan.publish('pos',{user:CU,x:player.x,y:player.y,facing:player.facing,moving:player.moving,color:playerColor,room:ROOM});},80);
+  });
+}
+
+function updateNearby(){
+  const el=document.getElementById('players-nearby');el.innerHTML='';
+  Object.values(remotes).slice(0,8).forEach(r=>{
+    const d=document.createElement('div');d.className='pnear';
+    d.innerHTML=`<div class="pnear-av" style="background:${r.color||'#60A5FA'};color:${isLight(r.color)?'#000':'#fff'}">${(r.user||'?')[0].toUpperCase()}</div><span style="color:rgba(255,255,255,.8)">${(r.user||'?').toUpperCase()}</span>`;
+    el.appendChild(d);
+  });
+}
+function isLight(h){if(!h||h.length<7)return false;const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return(r*.299+g*.587+b*.114)>150;}
+
+// ── CAMERA ──────────────────────────────────────────────────
+let camX=0,camY=0;
+
+// ── LOCATION DETECTION ──────────────────────────────────────
+function getLocation(){
+  for(const z of ZONES){if(player.x>z.x&&player.x<z.x+z.w&&player.y>z.y&&player.y<z.y+z.h)return z.name;}
+  return 'THE WORLD';
+}
+
+// ── DRAWING ─────────────────────────────────────────────────
+// Night sky stars
+const stars=Array.from({length:200},()=>({x:Math.random()*WORLD_W,y:Math.random()*WORLD_H,s:Math.random()*1.8+.4,t:Math.random()*Math.PI*2}));
+// Ground tiles pattern
+const grassTiles=Array.from({length:80},()=>({x:Math.random()*WORLD_W,y:Math.random()*WORLD_H,s:Math.random()*3+1,a:Math.random()*.3+.1}));
+
+function drawWorld(){
+  // Sky
+  const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#020818');sky.addColorStop(.5,'#041228');sky.addColorStop(1,'#051a20');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  
+  // Stars
+  const t=Date.now()/3000;
+  stars.forEach(s=>{
+    const sx=s.x-camX,sy=s.y-camY;
+    if(sx<-10||sx>W+10||sy<-10||sy>H+10)return;
+    const twinkle=.4+Math.sin(t+s.t)*.3;
+    ctx.fillStyle=`rgba(255,255,255,${twinkle})`;ctx.beginPath();ctx.arc(sx,sy,s.s,0,Math.PI*2);ctx.fill();
+  });
+  
+  // Ground
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0a1a0a');g.addColorStop(1,'#061206');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  
+  // Stars on top of ground as blend
+  stars.forEach(s=>{
+    const sx=s.x-camX,sy=s.y-camY;
+    if(sx<-10||sx>W+10||sy<-10||sy>H+10)return;
+    const twinkle=.25+Math.sin(t+s.t)*.15;
+    ctx.fillStyle=`rgba(255,255,255,${twinkle})`;ctx.beginPath();ctx.arc(sx,sy,s.s*.7,0,Math.PI*2);ctx.fill();
+  });
+  
+  // Zone glows
+  ZONES.forEach(z=>{
+    const x=z.x-camX,y=z.y-camY;
+    ctx.fillStyle=z.color;ctx.beginPath();ctx.roundRect(x,y,z.w,z.h,20);ctx.fill();
+  });
+  
+  // Grass tufts
+  grassTiles.forEach(g=>{
+    const gx=g.x-camX,gy=g.y-camY;
+    if(gx<-5||gx>W+5||gy<-5||gy>H+5)return;
+    ctx.fillStyle=`rgba(74,222,128,${g.a})`;
+    ctx.fillRect(gx,gy,g.s,g.s*3);
+  });
+  
+  drawDecorations();
+}
+
+function drawDecorations(){
+  const t=Date.now()/1000;
+  // Path stones
+  for(let i=0;i<20;i++){const x=200+i*80-camX,y=340-camY;ctx.fillStyle='rgba(255,255,255,.06)';ctx.beginPath();ctx.ellipse(x,y,20,8,0,0,Math.PI*2);ctx.fill();}
+  
+  DECORATIONS.forEach(d=>{
+    const dx=d.x-camX,dy=d.y-camY;
+    if(dx<-100||dx>W+100||dy<-100||dy>H+100)return;
+    if(d.t==='tree'){
+      // Trunk
+      ctx.fillStyle='#5c3d1a';ctx.fillRect(dx-6,dy,12,40);
+      // Foliage layers
+      [[0,-16,42,36],[0,-36,36,30],[0,-52,28,24]].forEach(([ox,oy,r,h])=>{
+        const g=ctx.createRadialGradient(dx+ox,dy+oy,0,dx+ox,dy+oy,r);g.addColorStop(0,'#22c55e');g.addColorStop(1,'#166534');
+        ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(dx+ox,dy+oy,r,h,0,0,Math.PI*2);ctx.fill();
+      });
+      // Sparkle
+      if(Math.sin(t*2+d.x)>.8){ctx.fillStyle='rgba(255,255,255,.5)';ctx.beginPath();ctx.arc(dx+8,dy-40,2,0,Math.PI*2);ctx.fill();}
+    }
+    else if(d.t==='bench'){
+      ctx.fillStyle='#7c5c3a';ctx.fillRect(dx,dy,60,10);
+      ctx.fillStyle='#8b6340';ctx.fillRect(dx+5,dy+10,8,14);ctx.fillRect(dx+47,dy+10,8,14);
+    }
+    else if(d.t==='fountain'){
+      // Base
+      ctx.fillStyle='rgba(96,165,250,.15)';ctx.beginPath();ctx.arc(dx,dy,60,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(96,165,250,.3)';ctx.lineWidth=2;ctx.stroke();
+      // Water
+      for(let i=0;i<12;i++){const wa=i/12*Math.PI*2+t;const wr=30+Math.sin(t*3+i)*.5;ctx.fillStyle=`rgba(96,165,250,${.3+Math.sin(t*2+i)*.15})`;ctx.beginPath();ctx.arc(dx+Math.cos(wa)*wr,dy+Math.sin(wa)*wr*.4,3,0,Math.PI*2);ctx.fill();}
+      // Spout
+      ctx.fillStyle='rgba(96,165,250,.6)';ctx.beginPath();ctx.arc(dx,dy,8,0,Math.PI*2);ctx.fill();
+    }
+    else if(d.t==='lamp'){
+      ctx.strokeStyle='#888';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(dx,dy);ctx.lineTo(dx,dy-50);ctx.stroke();
+      const glow=ctx.createRadialGradient(dx,dy-52,0,dx,dy-52,35);glow.addColorStop(0,'rgba(245,197,24,.5)');glow.addColorStop(1,'transparent');
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(dx,dy-52,35,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fde68a';ctx.beginPath();ctx.arc(dx,dy-52,6,0,Math.PI*2);ctx.fill();
+    }
+  });
+}
+
+function drawAvatar(x,y,facing,moving,color,name,step,emote){
+  const px=x-camX,py=y-camY;
+  if(px<-60||px>W+60||py<-60||py>H+60)return;
+  ctx.save();
+  if(facing<0)ctx.scale(-1,1),ctx.translate(-W,0),x=W-(x-camX)+camX;
+  const rpx=x-camX,rpy=y-camY;
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(rpx,rpy+44,18,5,0,0,Math.PI*2);ctx.fill();
+  // Legs animation
+  const legA=moving?Math.sin(step*.15)*14:0;
+  ctx.fillStyle=color+'bb';
+  ctx.beginPath();ctx.roundRect(rpx-8,rpy+26,10,20+Math.max(0,legA),4);ctx.fill();
+  ctx.beginPath();ctx.roundRect(rpx,rpy+26,10,20-Math.max(0,legA),4);ctx.fill();
+  // Body
+  const bodyGrad=ctx.createLinearGradient(rpx-12,rpy,rpx+12,rpy+28);bodyGrad.addColorStop(0,color);bodyGrad.addColorStop(1,color+'88');
+  ctx.fillStyle=bodyGrad;ctx.beginPath();ctx.roundRect(rpx-12,rpy,24,28,5);ctx.fill();
+  // Arm wave
+  const armA=moving?Math.sin(step*.15)*18:0;
+  ctx.fillStyle=color+'88';ctx.beginPath();ctx.roundRect(rpx-18,rpy+2,6,18+armA,3);ctx.fill();
+  ctx.beginPath();ctx.roundRect(rpx+12,rpy+2,6,18-armA,3);ctx.fill();
+  // Head
+  ctx.fillStyle='#fde68a';ctx.beginPath();ctx.arc(rpx,rpy-8,12,0,Math.PI*2);ctx.fill();
+  // Eyes
+  ctx.fillStyle='#1a1a1a';ctx.beginPath();ctx.arc(rpx-4,rpy-9,2.5,0,Math.PI*2);ctx.arc(rpx+4,rpy-9,2.5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.7)';ctx.beginPath();ctx.arc(rpx-3,rpy-10,1,0,Math.PI*2);ctx.arc(rpx+5,rpy-10,1,0,Math.PI*2);ctx.fill();
+  // Smile
+  ctx.strokeStyle='#333';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(rpx,rpy-6,4,0.2,Math.PI-.2);ctx.stroke();
+  // Name tag
+  ctx.fillStyle='rgba(0,0,0,.6)';const tw=ctx.measureText(name.toUpperCase()).width+12;ctx.fillRect(rpx-tw/2,rpy-32,tw,14);
+  ctx.fillStyle=color;ctx.font='bold 9px Courier New';ctx.textAlign='center';ctx.fillText(name.toUpperCase(),rpx,rpy-22);
+  // Emote
+  if(emote){ctx.font='20px serif';ctx.textAlign='center';ctx.fillText(emote,rpx,rpy-45);}
+  ctx.restore();
+}
+
+// ── UPDATE ──────────────────────────────────────────────────
+let last=0;
+function update(dt){
+  const inp=document.activeElement===document.getElementById('chat-input');
+  let dx=0,dy=0;
+  if(!inp){
+    if(keys['KeyA']||keys['ArrowLeft']){dx=-SPEED;player.facing=-1;}
+    if(keys['KeyD']||keys['ArrowRight']){dx=SPEED;player.facing=1;}
+    if(keys['KeyW']||keys['ArrowUp'])dy=-SPEED;
+    if(keys['KeyS']||keys['ArrowDown'])dy=SPEED;
+  }
+  if(dx&&dy){dx*=.707;dy*=.707;}
+  player.moving=!!(dx||dy);
+  if(player.moving)player.step++;
+  player.x=Math.max(20,Math.min(WORLD_W-20,player.x+dx));
+  player.y=Math.max(20,Math.min(WORLD_H-20,player.y+dy));
+  
+  // Camera
+  camX+=(player.x-W/2-camX)*.07;
+  camY+=(player.y-H/2-camY)*.07;
+  camX=Math.max(0,Math.min(WORLD_W-W,camX));
+  camY=Math.max(0,Math.min(WORLD_H-H,camY));
+  
+  // Emote timer
+  if(player.emoteTimer>0)player.emoteTimer--;else player.emote=null;
+  
+  // Location
+  document.getElementById('location-tag').textContent='📍 '+getLocation();
+  
+  // Emote popups
+  for(const e of emotePopups){e.life-=.02;e.dy-=.3;}
+  emotePopups.splice(0,emotePopups.length,...emotePopups.filter(e=>e.life>0));
+}
+
+function frame(t){
+  const dt=Math.min((t-last)/1000,.05);last=t;
+  update(dt);
+  drawWorld();
+  // Draw remote players
+  for(const rp of Object.values(remotes)){drawAvatar(rp.x,rp.y,rp.facing||1,rp.moving,rp.color||'#60A5FA',rp.user||'?',rp.step||0,null);}
+  // Draw self
+  drawAvatar(player.x,player.y,player.facing,player.moving,player.color,CU,player.step,player.emote);
+  // Emote popups
+  emotePopups.forEach(e=>{
+    ctx.save();ctx.globalAlpha=e.life;ctx.font='28px serif';ctx.textAlign='center';
+    ctx.fillText(e.emote,(e.wx-camX),(e.wy-camY+e.dy*10-50));
+    ctx.restore();
+  });
+  requestAnimationFrame(frame);
+}
+
+document.getElementById('enter-btn').addEventListener('click',()=>{
+  document.getElementById('splash').style.display='none';
+  initAbly();
+  requestAnimationFrame(t=>{last=t;frame(t);});
+});
+</script>
+</body>
+</html>
